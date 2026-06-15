@@ -35,7 +35,7 @@ import seaborn as sns
 max_ID    = 10 # number of colors in the palette
 norm_ID   = Normalize(0,max_ID)
 norm_tcwv = TwoSlopeNorm(vmin=0,vcenter=20,vmax=70) # center=48 to highlight the tropics
-norm_ivt  = TwoSlopeNorm(vmin=0,vcenter=250,vmax=600)
+norm_ivt  = TwoSlopeNorm(vmin=0,vcenter=250,vmax=1000)
 cmap_ID   = LinearSegmentedColormap.from_list('Custom cmap', 
                                               sns.color_palette('bright'), 
                                               len(sns.color_palette('bright')))

@@ -26,8 +26,8 @@ from   matplotlib.colors   import Normalize
 
 from sys import path
 path.append('/home/elegall/AR/scripts')
-from config import *
-import config as cf
+# from config import *
+# import config as cf
 from transects.tARget_get_transect import Transect
 from class_AR import AtmosphericRiver
 #import axes.get_axes as gaxes

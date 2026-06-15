@@ -55,7 +55,7 @@ mask_andes = is_ocean.sel(latitude=lat_andes_coastline,longitude=lon_andes_coast
 mask_andes.plot()
 
 # ----------------------------------------------
-#                Trouver une AR dans une zone donnée
+#%%                Trouver une AR dans une zone donnée
 # ----------------------------------------------
 # Une manière de faire est de chiner sur un outil de visualisation.
 #ex. : https://worldview.earthdata.nasa.gov/?v=-125.61485094788222,-76.05115214363698,3.0974194290006096,4.363831037417377&z=4&ics=true&ici=5&icd=30&l=Reference_Labels_15m(hidden),Reference_Features_15m(hidden),Coastlines_15m,IMERG_Precipitation_Rate_30min,OCI_PACE_True_Color(hidden),VIIRS_NOAA21_CorrectedReflectance_TrueColor(hidden),VIIRS_NOAA20_CorrectedReflectance_TrueColor(hidden),VIIRS_SNPP_CorrectedReflectance_TrueColor(hidden),MODIS_Aqua_CorrectedReflectance_TrueColor(hidden),MODIS_Terra_CorrectedReflectance_TrueColor&lg=true&t=2023-04-19-T13%3A44%3A59Z
@@ -64,16 +64,16 @@ timestep='2023-04-19T12'
 lat=lat_andes_coastline
 lon=lon_andes_coastline
 
-from class_AR import find_which_ID
+from  work_with_tARget.class_AR import find_which_ID
 ID = find_which_ID(timestep,lat,lon)
 
 # ----------------------------------------------
-#               Jouer avec un cas de rivière atmosphérique
+#%%               Jouer avec un cas de rivière atmosphérique
 # ----------------------------------------------
 # J'ai créé une classe pour manipuler la base de données tARget
 # Tu peux y ajouter des trucs
 # Faire une classe héritée par exemple ? 
-from class_AR import AtmosphericRiver
+from work_with_tARget.class_AR import AtmosphericRiver
 
 AR = AtmosphericRiver(ID)
 AR.get_mask() # pour voir à quoi ressemble un masque tARget pour une AR donnée
@@ -91,24 +91,58 @@ ivty = open_local.open_timeslice_ERA5(AR.mask.time,'ivty',mask=AR.mask)
 rain_rate = open_local.open_timeslice_ERA5(AR.mask.time,'rain_rate',mask=AR.mask)
 
 from cartopy import crs as ccrs
+import matplotlib.pyplot as plt
+from   matplotlib.colors   import Normalize
 from auxi_src.manage_figures import norm_ivt
 
 crs_0 = ccrs.PlateCarree()
-itime = 0
-AR.plot(itime=itime)
-ivt.ivt.isel(time=itime).plot(transform=crs_0,cmap='coolwarm',norm=norm_ivt)
+#crs_ax = AR.get_crs()
+#ax = plt.axes(projection=crs_ax)
+
+itime = 10
+fig,ax = AR.plot(itime=itime,out=True)
+
+# -- Add axis for colorbar
+h_pad  = 0.02
+v_pad  = 0.05
+bottom = 0
+left   = 1 + h_pad
+width  = 0.01
+height = 0.4
+cax = ax.inset_axes([left, bottom, width, height])
+position = cax.get_position()
+bottom3 = 1-height
+
+cax2 = ax.inset_axes([left, bottom3, width, height])
+
+
+plot = ivt.ivt.isel(time=itime).plot(ax=ax,transform=crs_0,cmap='coolwarm',norm=norm_ivt,
+                        cbar_ax=cax,
+                        cbar_kwargs = dict(shrink=0.5,
+                                        extend='max'))
+cbar = plot.colorbar
+cbar.set_ticks([0,250,500])
+cbar.ax.tick_params(labelsize=9) 
+cbar.set_label(f'ivt\n({ivt.ivt.units})',size=9)
+
 ivt_vec = xr.merge([ivtx,ivty])
 step = 10
 ivt_vec.isel(time=itime).sel(latitude=ivt_vec.latitude[::step],
-                    longitude=ivt_vec.longitude[::step]).plot.quiver(transform=crs_0,
+                    longitude=ivt_vec.longitude[::step]).plot.quiver(ax=ax,transform=crs_0,
                                     x = 'longitude', y='latitude',
                                     u='ivtx',v='ivty',
                                     color='dimgrey',
                                             headaxislength=1,headlength=2,
                                             add_guide=False)
-rain_rate.rain_rate.where(rain_rate.rain_rate >0.5).isel(time=itime).plot(cmap='gist_earth_r',transform=crs_0)
 
-# Checker la pluie 
-# et hop
+plot = rain_rate.rain_rate.where(rain_rate.rain_rate >0.5).isel(time=itime).plot(ax=ax,transform=crs_0,
+                                   cmap = 'turbo',
+                                    norm = Normalize(0.1,20),
+                                    cbar_kwargs = dict(shrink=0.5,extend='max'),
+                                    cbar_ax=cax2)
+cbar = plot.colorbar
+cbar.set_ticks([0,10,20])
+cbar.ax.tick_params(labelsize=9) 
+cbar.set_label(f'rain rate\n({rain_rate.rain_rate.units})',size=9)
 
 # %%

@@ -12,8 +12,8 @@ from datetime import datetime
 import glob 
 import numpy as np 
 
-from source.local_paths import *
-from source.manage_maps import to_180_ds
+from auxi_src.local_paths import *
+from auxi_src.manage_maps import to_180_ds
 # ----------------------------------------------
 #         Open ERA5 data
 # ----------------------------------------------
