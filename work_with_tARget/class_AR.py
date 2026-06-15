@@ -39,12 +39,12 @@ import metpy.calc as mpcalc
 
 from sys import path
 path.append('/home/elegall/AR/scripts')
-#from IBTrACS.get_storms import which_storm_associated_to_mask
+from IBTrACS.get_storms import which_storm_associated_to_mask
 #import config as cf
 
-import auxi_src.local_paths as local
-import auxi_src.manage_maps as maps
-import auxi_src.open_files as open_local
+import source.local_paths as local
+import source.manage_maps as maps
+import source.open_files as open_local
 
 # ----------------------------------------------
 #%%             Auxilliary
@@ -176,6 +176,28 @@ class AtmosphericRiver :
 
         return np.array((axislat,axislon)).T
     
+    def get_axis_mask_at_timestep(self,timestep,**kwargs) :
+        """
+        Get the axis as a data array mask
+
+        TODO : for every timestep
+        """
+        axis = self.get_axis_at_timestep(timestep,**kwargs)
+        axislon = axis.T[1]
+        axislat = axis.T[0]
+
+        axislat_025 = self.mask.sel(latitude=axislat,method='nearest').latitude.values
+        axislon_025 = self.mask.sel(longitude=axislon,method='nearest').longitude.values
+
+        axislat_idx = np.around((axislat_025 - self.mask.latitude.max().values)/(self.mask.latitude.min().values-self.mask.latitude.max().values)*100).astype(int)
+    
+        axislon_idx = np.around((axislon_025 - self.mask.longitude.min().values)/(self.mask.longitude.max().values-self.mask.longitude.min().values)*100).astype(int)
+
+        axis_mask = np.zeros_like(self.mask.sel(time=timestep))
+        axis_mask[(axislat_idx,axislon_idx)] = 1
+
+        return axis_mask + 0*self.mask.sel(time=timestep)
+   
     def get_fracaxis_coord(self,timestep,ylat,ylon,out='coord',**kwargs) :
         '''
         Returns the index of the point of the tARget axis that is closest to the point 
@@ -392,7 +414,6 @@ class AtmosphericRiver :
         print('center plot at 180 ? ', center_at_180)
         # Coordinate system to use to create the ax :
         crs_ax = ccrs.PlateCarree(central_longitude=180*center_at_180)
-        self.crs = crs_ax
         
         return crs_ax
         
