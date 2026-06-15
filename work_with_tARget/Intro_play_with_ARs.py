@@ -19,13 +19,13 @@ from sys import path
 path.append('/home/elegall/AR/scripts')
 # nécessaire dans l'éxecution 
 
-import source.manage_maps as maps
-import source.open_files as open_local
+import auxi_src.manage_maps as maps
+import auxi_src.open_files as open_local
 
 # ----------------------------------------------
 #                Base de données tARget
 # ----------------------------------------------
-import source.local_paths as local
+import auxi_src.local_paths as local
 
 #ds_tARget = xr.open_dataset(local.path_tARget_db + local.tARget_db_file)
 #print(ds_tARget.variables)
@@ -91,7 +91,7 @@ ivty = open_local.open_timeslice_ERA5(AR.mask.time,'ivty',mask=AR.mask)
 rain_rate = open_local.open_timeslice_ERA5(AR.mask.time,'rain_rate',mask=AR.mask)
 
 from cartopy import crs as ccrs
-from source.manage_figures import norm_ivt
+from auxi_src.manage_figures import norm_ivt
 
 crs_0 = ccrs.PlateCarree()
 itime = 0
