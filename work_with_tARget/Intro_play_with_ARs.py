@@ -27,8 +27,8 @@ import auxi_src.open_files as open_local
 # ----------------------------------------------
 import auxi_src.local_paths as local
 
-#ds_tARget = xr.open_dataset(local.path_tARget_db + local.tARget_db_file)
-#print(ds_tARget.variables)
+ds_tARget = xr.open_dataset(local.path_tARget_db + local.tARget_db_file)
+print(ds_tARget.variables)
 # Ici, n'hésite pas à fouiner un peu dans les différentes variables.
 # La base de données est assez riche, mais organisée bizarrement 
 # (cf article qui la décrit, Guan and Waliser 2024)
@@ -54,6 +54,8 @@ is_ocean = xr.open_dataarray(local.path_ocean_file)
 mask_andes = is_ocean.sel(latitude=lat_andes_coastline,longitude=lon_andes_coastline)
 mask_andes.plot()
 
+# Trouver une orientation grossière de l'orographie
+
 # ----------------------------------------------
 #%%                Trouver une AR dans une zone donnée
 # ----------------------------------------------
@@ -77,7 +79,15 @@ from work_with_tARget.class_AR import AtmosphericRiver
 
 AR = AtmosphericRiver(ID)
 AR.get_mask() # pour voir à quoi ressemble un masque tARget pour une AR donnée
+AR.mask 
 AR.plot(itime=0) # Tu peux changer l'indice pour visualier d'autres moments
+
+# ----------------------------------------------
+#%%               Trouver l'axe tARget à un certain moment
+# ----------------------------------------------
+
+axis = AR.get_axis_at_timestep(AR.mask.time[0])
+# ivt au niveau de l'axe
 
 # ----------------------------------------------
 #%%                Associer des données de pluie, d'IVT
@@ -91,15 +101,14 @@ ivty = open_local.open_timeslice_ERA5(AR.mask.time,'ivty',mask=AR.mask)
 rain_rate = open_local.open_timeslice_ERA5(AR.mask.time,'rain_rate',mask=AR.mask)
 
 from cartopy import crs as ccrs
-import matplotlib.pyplot as plt
 from   matplotlib.colors   import Normalize
 from auxi_src.manage_figures import norm_ivt
 
 crs_0 = ccrs.PlateCarree()
-#crs_ax = AR.get_crs()
-#ax = plt.axes(projection=crs_ax)
 
 itime = 10
+
+# Plot le contour de l'AR
 fig,ax = AR.plot(itime=itime,out=True)
 
 # -- Add axis for colorbar
@@ -115,7 +124,7 @@ bottom3 = 1-height
 
 cax2 = ax.inset_axes([left, bottom3, width, height])
 
-
+# plot l'amplitude de l'ivt
 plot = ivt.ivt.isel(time=itime).plot(ax=ax,transform=crs_0,cmap='coolwarm',norm=norm_ivt,
                         cbar_ax=cax,
                         cbar_kwargs = dict(shrink=0.5,
@@ -125,6 +134,7 @@ cbar.set_ticks([0,250,500])
 cbar.ax.tick_params(labelsize=9) 
 cbar.set_label(f'ivt\n({ivt.ivt.units})',size=9)
 
+# plot la direction de l'ivt
 ivt_vec = xr.merge([ivtx,ivty])
 step = 10
 ivt_vec.isel(time=itime).sel(latitude=ivt_vec.latitude[::step],
@@ -135,6 +145,7 @@ ivt_vec.isel(time=itime).sel(latitude=ivt_vec.latitude[::step],
                                             headaxislength=1,headlength=2,
                                             add_guide=False)
 
+# plot la pluie
 plot = rain_rate.rain_rate.where(rain_rate.rain_rate >0.5).isel(time=itime).plot(ax=ax,transform=crs_0,
                                    cmap = 'turbo',
                                     norm = Normalize(0.1,20),
