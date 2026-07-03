@@ -43,7 +43,7 @@ path.append('/home/elegall/AR/scripts')
 #import config as cf
 
 import auxi_src.local_paths as local
-import auxi_src.manage_maps as maps
+import auxi_src.manage_maps as maps 
 import auxi_src.open_files as open_local
 
 # ----------------------------------------------
