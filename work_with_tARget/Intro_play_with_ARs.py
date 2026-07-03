@@ -44,6 +44,10 @@ print(ds_tARget.variables)
 # ----------------------------------------------
 lon_andes_coastline = slice(280,300)
 lat_andes_coastline = slice(-30,-60)
+lon_plot = slice(230,340)
+# pour une raison obscure, l'AR # 202303130615
+# a un pb autour des lon 220-230 ??
+lat_plot = slice(-20,-70)
 # Proposition grossière, à préciser
 # Il faut de plus préciser la zone costale pré-relief et sur l'amont du relief :
 #~~~~__/\___ (où ~ est l'eau, _ la terre et /\ le relief)
@@ -51,7 +55,7 @@ lat_andes_coastline = slice(-30,-60)
 
 # Pour distinguer l'océan du continent, voici un masque  
 is_ocean = xr.open_dataarray(local.path_ocean_file)
-mask_andes = is_ocean.sel(latitude=lat_andes_coastline,longitude=lon_andes_coastline)
+mask_andes = is_ocean.sel(latitude=lat_plot,longitude=lon_plot)
 mask_andes.plot()
 
 # Trouver une orientation grossière de l'orographie
@@ -62,7 +66,8 @@ mask_andes.plot()
 # Une manière de faire est de chiner sur un outil de visualisation.
 #ex. : https://worldview.earthdata.nasa.gov/?v=-125.61485094788222,-76.05115214363698,3.0974194290006096,4.363831037417377&z=4&ics=true&ici=5&icd=30&l=Reference_Labels_15m(hidden),Reference_Features_15m(hidden),Coastlines_15m,IMERG_Precipitation_Rate_30min,OCI_PACE_True_Color(hidden),VIIRS_NOAA21_CorrectedReflectance_TrueColor(hidden),VIIRS_NOAA20_CorrectedReflectance_TrueColor(hidden),VIIRS_SNPP_CorrectedReflectance_TrueColor(hidden),MODIS_Aqua_CorrectedReflectance_TrueColor(hidden),MODIS_Terra_CorrectedReflectance_TrueColor&lg=true&t=2023-04-19-T13%3A44%3A59Z
 
-timestep='2023-04-19T12'
+timestep = '2023-04-19T12'
+timestep = '2023-03-14T12'
 lat=lat_andes_coastline
 lon=lon_andes_coastline
 
@@ -80,7 +85,7 @@ from work_with_tARget.class_AR import AtmosphericRiver
 AR = AtmosphericRiver(ID)
 AR.get_mask() # pour voir à quoi ressemble un masque tARget pour une AR donnée
 AR.mask 
-AR.plot(itime=0) # Tu peux changer l'indice pour visualier d'autres moments
+AR.plot(itime=10) # Tu peux changer l'indice pour visualier d'autres moments
 
 # ----------------------------------------------
 #%%               Trouver l'axe tARget à un certain moment
@@ -94,11 +99,11 @@ axis = AR.get_axis_at_timestep(AR.mask.time[0])
 # ----------------------------------------------
 # Les données d'IVT (norme) et de composantes latitudinale (y) et longitudinale (x) du vecteur
 # sont stockées sur `local.path_datax` (calcul fait à partir des données d'ERA5) 
-ivt = open_local.open_timeslice_ERA5(AR.mask.time,'ivt',mask=AR.mask)
-ivtx = open_local.open_timeslice_ERA5(AR.mask.time,'ivtx',mask=AR.mask)
-ivty = open_local.open_timeslice_ERA5(AR.mask.time,'ivty',mask=AR.mask)
+ivt = open_local.open_timeslice_ERA5(AR.mask.time,'ivt',latitude=lat_plot,longitude=lon_plot)#mask=AR.mask)
+ivtx = open_local.open_timeslice_ERA5(AR.mask.time,'ivtx',latitude=lat_plot,longitude=lon_plot)
+ivty = open_local.open_timeslice_ERA5(AR.mask.time,'ivty',latitude=lat_plot,longitude=lon_plot)
 
-rain_rate = open_local.open_timeslice_ERA5(AR.mask.time,'rain_rate',mask=AR.mask)
+rain_rate = open_local.open_timeslice_ERA5(AR.mask.time,'rain_rate',latitude=lat_plot,longitude=lon_plot)
 
 from cartopy import crs as ccrs
 from   matplotlib.colors   import Normalize
@@ -106,9 +111,11 @@ from auxi_src.manage_figures import norm_ivt
 
 crs_0 = ccrs.PlateCarree()
 
-itime = 10
-
+AR.mask = AR.mask.sel(latitude=lat_plot,
+                      longitude=lon_plot)
 # Plot le contour de l'AR
+#%%
+itime = 8
 fig,ax = AR.plot(itime=itime,out=True)
 
 # -- Add axis for colorbar
@@ -136,7 +143,7 @@ cbar.set_label(f'ivt\n({ivt.ivt.units})',size=9)
 
 # plot la direction de l'ivt
 ivt_vec = xr.merge([ivtx,ivty])
-step = 10
+step = 8
 ivt_vec.isel(time=itime).sel(latitude=ivt_vec.latitude[::step],
                     longitude=ivt_vec.longitude[::step]).plot.quiver(ax=ax,transform=crs_0,
                                     x = 'longitude', y='latitude',
@@ -155,5 +162,8 @@ cbar = plot.colorbar
 cbar.set_ticks([0,10,20])
 cbar.ax.tick_params(labelsize=9) 
 cbar.set_label(f'rain rate\n({rain_rate.rain_rate.units})',size=9)
+#%%
+imerg.where(ds_target.kidmap) 
+imerg.where(imerg>0.1,1,0).sum(dim='time') 
 
 # %%

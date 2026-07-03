@@ -166,16 +166,18 @@ def open_timeslice_ERA5(timeslice,variable,**kwargs) :
                         latitude=latitude) # lat par ordre décroissant
             return ds
         kwargs['preprocess'] = preprocess
-    
-    # if 'resolution' in kwargs :
-    #     del kwargs['resolution']
-    # if 'level' in kwargs :
-    #     del kwargs['level']
 
+    spec = kwargs.get('spec','')
+    if 'spec' in kwargs :
+        print('check spec')
+        basin = kwargs.get('basin','')
+        if len(basin) <= 1 :
+            print('A `spec` for opening the field was required, but no `basin` was provided. Returning the regular dataset')
+        del kwargs['spec'] ; del kwargs['basin']
+        
     ds = []
     for date in months_from_timeslice :
         # ajouter un preprocess pour n'ouvrir que les bonnes dates du mois ? 
-        #def preprocess() :
         ds_month = open_month_ERA5(date,variable,**kwargs)
         if type(ds_month) == xr.Dataset :
             ds.append(ds_month)
@@ -185,5 +187,14 @@ def open_timeslice_ERA5(timeslice,variable,**kwargs) :
     except : 
         ds = ds[0] #.sel(time=slice(timeslice[0],timeslice[-1]))
 
-    return ds
+    if spec == 'coast' and len(basin) > 1 :
+        coast = xr.open_dataarray(f'{path_ocean_masks}{all_coast_files[basin]}')
+        ds = ds.where(coast.sel(latitude=ds.latitude,longitude=ds.longitude)>0)
+        coast.close()
 
+    if spec == 'land' and len(basin) > 1 :
+        basin = xr.open_dataarray(f"{path_ocean_masks}{all_basins_files[basin]}")
+        ds = ds.where(np.isnan(basin.sel(latitude=ds.latitude,longitude=ds.longitude)))
+        basin.close()
+
+    return ds

@@ -39,7 +39,7 @@ import metpy.calc as mpcalc
 
 from sys import path
 path.append('/home/elegall/AR/scripts')
-#from IBTrACS.get_storms import which_storm_associated_to_mask
+from IBTrACS.get_storms import which_storm_associated_to_mask
 #import config as cf
 
 import auxi_src.local_paths as local
@@ -72,6 +72,57 @@ def find_which_ID(timestep,lat,lon,da_kidmap=None) :
     da_kidmap.close()
     
     return ID[0]
+
+from scipy.ndimage import label
+def get_rain_where_mask_2D(rain_rate,mask,itime,
+                        rainy_threshold=0.1,
+                        shared_zone_threshold=0.1) : 
+    """
+    Returns precipitation zones associated to a 2D mask,
+    i.e. patches that fully or partially overlap with the mask.
+
+    Arguments :
+    -----------
+
+        rainy_threshold : float. default to 0.1 (mm.h-1)
+            Threshold above which precipitation is considered to be enough
+        shared_zone_threshold = float. default to 10%
+            Fraction of precipitation patch surface intersecting with the mask 
+            above which a patch is considered to be linked to the mask
+
+    """
+    mask = mask.isel(time=itime)
+    rain = rain_rate.where(rain_rate > rainy_threshold).isel(time=itime)
+    # Label rain patches
+    rain_lab = label(rain > 0,structure=np.ones((3,3)))
+    # Keep the labels where the AR mask is
+    rain_mask = np.where(mask,rain_lab[0],0)
+
+    # Identify valid labels
+    labels = np.unique(rain_mask)
+    labels = labels[labels>0]
+
+    # Create a boolean mask for the accepted precipitation patches
+    if len(labels) == 0 :
+        # No rain is found near the mask
+        rain_lab_mask = np.zeros_like(rain)
+
+    elif len(labels) == 1 :
+        # If just one label,
+        # we keep it
+        if np.sum(np.where(rain_mask==labels[0],1,0))/np.sum(np.where(rain_lab[0]==labels[0],1,0)) > 0.1 :
+            rain_lab_mask = np.where(rain_lab[0] == labels[0],1,0)
+        else :
+            rain_lab_mask = np.zeros_like(rain)
+
+    else :
+        # Ne gmaskder que les patchs de rain dont l'intersection avec le masque est suffisamment élevée
+        # ex : > 10% (seuil bas)
+        rain_lab_mask = np.sum([rain_lab[0] == lab for lab in labels 
+                            if np.sum(np.where(rain_mask==lab,1,0))/np.sum(np.where(rain_lab[0]==lab,1,0)) > shared_zone_threshold],
+                            axis=0)
+        
+    return rain.where(rain_lab_mask)
 
 # ----------------------------------------------
 #%%                Physics
@@ -649,6 +700,33 @@ class AtmosphericRiver :
         infos = which_storm_associated_to_mask(self.mask)
         return xr.Dataset(infos,coords={'ID':self.ID})
          
+    def get_precipitation(self,rain_rate) : 
+        """
+        TODO : 
+        dask.delayed ? (6.6s pour une longue AR (211h))
+        il faudrait même ouvrir les données de pluie avec une larger latlon box pour 
+        """
+        timeslice = slice(self.mask.time.min(),self.mask.time.max())
+        timeslice = rain_rate.sel(time=timeslice).time
+        self.mask = self.mask.interp(time=timeslice)
+
+        lats = list(set(self.mask.latitude.values) & set(rain_rate.latitude.values))
+        lons = list(set(self.mask.longitude.values) & set(rain_rate.longitude.values))
+        rain_rate = rain_rate.sel(latitude=lats,longitude=lons)
+        mask = self.mask.sel(latitude=lats,longitude=lons)
+
+        # ici, faire la sélection en lat-lon
+        # et la fonction d'après (get_rain_ar_mask_2d)
+        # peut alors être utilisée pour kidmap directement
+        # = pour plusieurs AR d'un coup.
+
+        rain_ar = []    
+        for itime in range(self.mask.time.size) :
+            rain_ar.append(get_rain_where_mask_2D(rain_rate,mask,itime))
+
+        rain_ar = xr.concat(rain_ar,dim='time')
+
+        return rain_ar 
 
     def plot(self,timestep=None,itime=0,out=False):
         """

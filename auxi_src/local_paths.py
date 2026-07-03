@@ -23,4 +23,17 @@ path_scratchu  = '/scratchu/elegall/'
 path_IMERG     = '/proju/smos/xperrot/IMERG/'
 path_IMERG_ERA5 = '/proju/smos/xperrot/IMERG_V7_ERA5_GRID/'
 
-path_ocean_file = '/data/elegall/AR/ERA5/ocean_basins/is_ocean.nc' 
+path_ocean_masks = '/data/elegall/AR/ERA5/ocean_basins/'
+
+path_ocean_file = path_ocean_masks + 'is_ocean.nc' 
+
+all_basins_files = {'NP':'NPac_ocean.nc',
+                     'NA':'NAtl_ocean.nc',
+                     'SP':'SPac_ocean.nc',
+                     'SA':'SAtl_ocean.nc',
+                     'IO':'IOce_ocean.nc'}
+all_coast_files = {'NP':'NPac_coast.nc',
+                     'NA':'NAtl_coast.nc',
+                     'SP':'SPac_coast.nc',
+                     'SA':'SAtl_coast.nc',
+                     'IO':'IOce_coast.nc'}
