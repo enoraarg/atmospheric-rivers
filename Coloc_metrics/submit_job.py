@@ -17,11 +17,11 @@ ilinethres  = np.where([line.startswith('thres=') for line in lines])[0][0]
 ilinethresmode  = np.where([line.startswith('thresmode') for line in lines])[0][0]
 ilinevalue  = np.where([line.startswith('value') for line in lines])[0][0]
 
-thresmode='abs' #'quantile'
-thres=10 #0.1
+thresmode='quantile'
+thres=0.99 #0.1
 variable='rain_rate' #ivt
 spec='coast'
-value='area'
+value='mean'
 
 lines[ilinespec] = f"spec={spec}\n"
 lines[ilinevar] = f"variable={variable}\n"
@@ -32,7 +32,6 @@ lines[ilinevalue] = f"value={value}\n"
 delay=0
 for basin in ['NA','NP','SA','SP','IO'] :
     lines[ilinebasin] = f"basin={basin}\n"
-    #True :
     for newyear in range(2010,2023+1) :
         lines[ilineyear] = f"year='{str(newyear)}'\n"
 
@@ -40,4 +39,4 @@ for basin in ['NA','NP','SA','SP','IO'] :
             writefile.writelines(lines)
 
         os.system(f"cd {path_job} ; sbatch --begin=now+{int(delay)}minutes {program}")
-        delay+=10 #0.02
+        delay+=5 #0.02

@@ -6,6 +6,9 @@ Jan 2025
 author @eno
 
 Module to colocate some field info to atmospheric rivers
+
+NOTE : suggestions pour Jeanne
+- ajouter les fonctions qui t'intéressent ex. get_angle
 '''
 # ------------------------------------------
 #%%       Imports
@@ -86,7 +89,7 @@ def get_barycenter(AR,da,thresmode='abs',thres=0.1,value='mean',**kwargs) :
     if da.sum() == 0 :
         # No data points are found
         # returns nan
-        print('no value found.',ID)
+        print('no value found.',AR.ID)
         barvalue = (da.sum()*np.nan).assign_coords({'ID':AR.ID,
                                       'latitude':np.nan,
                                       'longitude':np.nan,
@@ -110,45 +113,88 @@ def get_barycenter(AR,da,thresmode='abs',thres=0.1,value='mean',**kwargs) :
     weights_spatial = np.array([weights for dim in da.values.shape]).T
 
     # Get location (indices) of points where there is precipitation
+    # vérifier sortby ?
     np_data = np.where(da.values > 0,1,0)
     data_points = np.array(np.where(np_data)).T
 
-    # Multiply coordinates by the weight
-    weighted_coords = weights_spatial*data_points
-    # The barycenter G is at location = sum(wi * Ai)/sum(wi)
-    G = np.sum(weighted_coords,axis=0)/np.sum(weights)
+    if len(data_points) == 1 :
+        G = data_points[0]
 
-    # Get coordinates corresponding to indices 
-    def interp_lin_coord(coordname) :
-        coords = da[coordname]
+        def get_value(coordname) : 
+            coords = da[coordname]
+            i_axiscoord = da.get_axis_num(coordname)
+            return coords[G[i_axiscoord]]
 
-        if coordname == 'longitude' :
-            coords = maps.to_180(coords,
-                               flag_to_180=((0 in coords) 
-                                         or (coords.max() > 359 and coords.min() < 1)))
+        lat_G = get_value('latitude')
+        lon_G = get_value('longitude')
+        timestep = get_value('time')
+
+    else : 
+        # Multiply coordinates by the weight
+        weighted_coords = weights_spatial*data_points
+        # The barycenter G is at location = sum(wi * Ai)/sum(wi)
+        G = np.sum(weighted_coords,axis=0)/np.sum(weights)
+
+        # Get closest coordinates correponding to indices 
+        def get_closest_coordinate(coordname) :
+            """
+            Returns the existing coordinate value 
+            that is closest to the one corresponding to the actual coordinate value
+            """
+            coords = da[coordname]
+
+            if coordname == 'longitude' :
+                coords = maps.to_180(coords,
+                                flag_to_180=((0 in coords) 
+                                            or (coords.max() > 359 and coords.min() < 1)))
             
-        icoord = da.get_axis_num(coordname)
-        icoord_low = int(np.floor(G[icoord]))
-        coord = (G[icoord] - icoord_low) \
-            * (coords[icoord_low+1] - coords[icoord_low]) \
-            + coords[icoord_low]
+            i_axiscoord = da.get_axis_num(coordname)
+            icoord= round(G[i_axiscoord]) # G is in units pixels
+            if icoord == len(coords) :
+                icoord -= 1
+
+            coord = coords[icoord]
+
+            if coordname == 'longitude' :
+                coord = coord%360
+            return coord
         
-        if coordname == 'longitude' :
-            coord = coord%360
-        return coord
+        # Get coordinates corresponding to indices 
+        def interp_lin_coord(coordname) :
+            """
+            Returns a precise coordinate, independant of the spatial resolution of the dataset
+            """
+            coords = da[coordname]
 
-    lat_G = interp_lin_coord('latitude')
-    lon_G = interp_lin_coord('longitude')
+            if coordname == 'longitude' :
+                coords = maps.to_180(coords,
+                                flag_to_180=((0 in coords) 
+                                            or (coords.max() > 359 and coords.min() < 1)))
+                
+            icoord = da.get_axis_num(coordname)
+            icoord_low = int(np.floor(G[icoord])) # G is in units pixels
+            if icoord_low+1 == len(coords) :
+                coord = coords[icoord_low]
+            coord = (G[icoord] - icoord_low) \
+                * (coords[icoord_low+1] - coords[icoord_low]) \
+                + coords[icoord_low]
+            
+            if coordname == 'longitude' :
+                coord = coord%360
+            return coord
 
-    # Get additional coordinates 
-    itime = da.get_axis_num('time')
-    frac_time_G = G[itime]/da.time.size
+        lat_G = interp_lin_coord('latitude')
+        lon_G = interp_lin_coord('longitude')
 
-    closest_time = da.time[int(np.around(G[itime]))]
-    # En attendant l'interpolation en temps de l'axe :
-    timestep = AR.mask.sel(time=closest_time,method='nearest').time.values
+        # Get additional coordinates 
+        itime = da.get_axis_num('time')
+        frac_time_G = G[itime]/da.time.size
+
+        closest_time = da.time[int(np.around(G[itime]))]
+        # En attendant l'interpolation en temps de l'axe :
+        timestep = AR.mask.sel(time=closest_time,method='nearest').time.values
     frac_axis_G,dist_to_axis = AR.get_fracaxis_coord(timestep,lat_G,lon_G,
-                                                     out='coord_and_dist')
+                                                        out='coord_and_dist')
 
     # Mise au propre
     # NOTE #todo : changer le nom des coords, 
@@ -158,7 +204,7 @@ def get_barycenter(AR,da,thresmode='abs',thres=0.1,value='mean',**kwargs) :
                                       'latitude':lat_G,
                                       'longitude':lon_G,
                                       'frac_axis':frac_axis_G,
-                                      'time' : closest_time,
+                                      'time' : timestep,#closest_time,
                                       'frac_time':frac_time_G,
                                       'dist_to_axis':dist_to_axis})
     barvalue.dist_to_axis.attrs = {'units':'°',
@@ -168,11 +214,12 @@ def get_barycenter(AR,da,thresmode='abs',thres=0.1,value='mean',**kwargs) :
 
     return barvalue
 
+dicr_des_fonctions = {'bar':get_barycenter,'angles':get_ang}
 # ------------------------------------------
 # %%       Colocate some data and one AR mask
 # ------------------------------------------
 #@dask.delayed
-def coloc_metric(ID,da_variable=None,**kwargs) :
+def coloc_metric(ID,func='get_barycenter',da_variable=None,**kwargs) :
     '''
     Function to colocate 
     ID : AR identification label (tARget identification)
@@ -191,7 +238,7 @@ def coloc_metric(ID,da_variable=None,**kwargs) :
         variable = kwargs.get('variable','ivt')
         if 'spec' in kwargs :
             add_kwargs = dict(spec=kwargs['spec'],basin=kwargs.get('basin','.'))
-        if True : #try : 
+        try : 
             da_variable = of.open_timeslice_ERA5(AR.mask.time,variable,
                                              mask=AR.mask,maskonly='rain' not in variable,
                                              **add_kwargs)[variable]
@@ -205,8 +252,8 @@ def coloc_metric(ID,da_variable=None,**kwargs) :
                 da_variable = da_variable.sel(level=850)
                 da_variable = -da_variable.where(da_variable < 0)
                 
-        # except :
-        #     print("Sorry, I don't know how to process this so far")
+        except :
+             print("Sorry, I don't know how to process this so far")
 
     elif 'rain' not in da_variable.name :
         #print("Keeping data only where the AR is. Assuming any necessary computations have already been done")
@@ -216,6 +263,8 @@ def coloc_metric(ID,da_variable=None,**kwargs) :
         da_variable = AR.get_precipitation(da_variable)
 
     result = get_barycenter(AR,da_variable,**kwargs)
+
+    result = dict_des_fonctions[func](AR,da_variable)
 
     if kwargs.get('spec_var','bar') in ['w850up','w500up'] :
         result = -result
@@ -234,18 +283,3 @@ if __name__ == '__main__' :
     ID = 202303130615
     rr = coloc_metric(ID,variable='rain_rate')
     rr = dask.compute(rr)[0] 
-
-# à débug
-# year = 2023
-# month = 7
-# basin = SP
-# variable = rain_rate
-# spec = coast
-# #IndexError: index 562 is out of bounds for axis 0 with size 562
-# #    * (coords[icoord_low+1] - coords[icoord_low]) \
-# # %%
-# ID = 202307181216
-# AR.mask.time
-# da_variable
-# # %%
-# result = get_barycenter(AR,da_variable) # beh ? ça marche ? 

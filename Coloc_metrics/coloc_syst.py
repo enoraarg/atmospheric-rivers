@@ -74,6 +74,7 @@ from Coloc_metrics.coloc_singleAR import coloc_metric
 def get_outfilename(pars) : 
     return pars['outputdir'] + f"tARget/{pars['variable']}/temp.{pars['year']}.{pars['month']}.{pars['delta']}.{pars['basin']}.{pars['variable']}.{pars['thres']}.{pars['value']}.{pars['spec']}.nc"
 
+rain_threshold = 0.1
 # ------------------------------------------
 # %%       Write to NetCDF
 # ------------------------------------------
@@ -91,17 +92,17 @@ def mainID():
     # -- Parameters
     global pars
     pars = {'is_test':True,
-            'year':2013,
+            'year':2022,
             'month':12,
             'delta':31,
             'spec':'coast',
             'variable':'rain_rate',
-            'thresmode':'abs',
-            'basin':'SP',
-            'thres':10,
+            'thresmode':'quantile',
+            'basin':'IO',
+            'thres':0.99,
             'value':'mean',
             'plots':False,
-            'vraitest':hasattr(sys,'ps1'),# = is interactif
+            'vraitest':False,#hasattr(sys,'ps1'),# = is interactif
             'outputdir':cf.path_scratchu}
 
     if not hasattr(sys,'ps1') :
@@ -148,20 +149,23 @@ def mainID():
     # à venir mais pas encore au point
 
     def preprocess(ds) :
-        basin = xr.open_dataarray(f"{lp.path_ocean_masks}{lp.all_basins_files[basin]}")
+        basin = xr.open_dataarray(f"{lp.path_ocean_masks}{lp.all_basins_files[pars['basin']]}")
         basin = basin.where(basin > 0,drop=True)
         ds = ds.sel(time=slice(date1.strftime('%Y-%m-%d'),date2.strftime('%Y-%m-%d')))
         ds = ds.sel(latitude  = basin.latitude,
                     longitude = basin.longitude)
         
         if pars['spec'] == 'coast' :
-            coast = xr.open_dataarray(f'{lp.path_ocean_masks}{lp.all_coast_files[basin]}')
+            coast = xr.open_dataarray(f'{lp.path_ocean_masks}{lp.all_coast_files[pars['basin']]}')
             ds = ds.where(coast>0)
             coast.close()
 
         if pars['spec'] == 'land' :
             ds = ds.where(np.isnan(basin))
         basin.close()
+
+        if pars['variable'] == 'rain_rate' :
+            ds = ds.where(ds.rain_rate > rain_threshold)
 
         return ds
     
@@ -171,7 +175,7 @@ def mainID():
     else : 
         da_variable = cf.open_timeslice_ERA5(timeslice,variable,preprocess=preprocess)[variable]
  
-    if pars['spec'] == 'w500up' :
+    if pars['spec'] == 'w500up' : # ce n'est plus `spec``
         da_variable = da_variable.sel(level=500)
         da_variable = -da_variable.where(da_variable < 0)
 
@@ -190,8 +194,9 @@ def mainID():
             AR = AtmosphericRiver(ID)
             da_coloc.append(AR.get_storm_characteristics())
         else :
-            da_coloc.append(coloc_metric(ID,
+            da_coloc.append(dask.delayed(coloc_metric)(ID,
                             da_variable=da_variable,
+                            func='nom_de_la_fonction',
                             **pars
                             ))
     da_coloc = dask.compute(da_coloc)[0]
@@ -226,7 +231,7 @@ def merge(basin,name_pattern) :
     adapter la variable (imerg,ivt...)
     """
     print(basin)
-    temp = glob.glob(f"/scratchx/elegall/tARget/ivt/*{basin}*{name_pattern}.nc")
+    temp = glob.glob(f"/scratchu/elegall/tARget/ivt/*{basin}*{name_pattern}.nc")
     temp = [xr.open_dataset(file) for file in temp]
     temp = [file.drop_vars('quantile') if 'quantile' in file.coords else file for file in temp]
 

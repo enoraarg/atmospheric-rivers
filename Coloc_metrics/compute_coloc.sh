@@ -9,23 +9,23 @@
 #SBATCH --partition zen4
 #SBATCH --ntasks 2
 ##SBATCH --cpus-per-task=1
-#SBATCH --mem 30g
+#SBATCH --mem 5g
 #SBATCH --time 00:10:00
-#SBATCH --array=1-12 # = les 12 mois d'une année
+##SBATCH --array=2-12 # = les 12 mois d'une année
 
 program=coloc_syst.py
 path_to_program=/home/elegall/AR/scripts/Coloc_metrics
 echo program = $program
 
-month=$SLURM_ARRAY_TASK_ID 
+month=12
 #= à chaque sous-exécution, la tache a un identifiant différent, donné par les arguments de --array
-year=2011
-basin=NA
-thresmode=abs
-thres=10
+year=2022
+basin=IO
+thresmode=quantile
+thres=0.99
 variable=rain_rate
 spec=coast
-value=area
+value=mean
 
 echo year = $year
 echo month = $month
